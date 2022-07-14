@@ -11,10 +11,13 @@ import (
 	// Directory containing the Rust project to build
 	projectDirectory: dagger.#FS
 
+	// Rust Docker image to be used for building the project
+	rustDockerImage: string
+
 	chef: docker.#Build & {
 		steps: [
 			docker.#Pull & {
-				source: "rust:1.62.0-slim"
+				source: rustDockerImage
 			},
 			docker.#Run & {
 				command: {
@@ -86,6 +89,7 @@ dagger.#Plan & {
 
 		cargochefBuild: #CargoChefBuild & {
 			projectDirectory: client.filesystem.".".read.contents
+			rustDockerImage:  "rust:1.62.0-slim"
 		}
 
 		runtime: docker.#Build & {
