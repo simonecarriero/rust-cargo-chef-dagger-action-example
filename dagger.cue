@@ -6,6 +6,75 @@ import (
 	"universe.dagger.io/docker/cli"
 )
 
+#CargoChefBuild: {
+
+	// Directory containing the Rust project to build
+	projectDirectory: dagger.#FS
+
+	chef: docker.#Build & {
+		steps: [
+			docker.#Pull & {
+				source: "rust:1.62.0-slim"
+			},
+			docker.#Run & {
+				command: {
+					name: "cargo"
+					args: ["install", "cargo-chef"]
+				}
+			},
+			docker.#Set & {
+				config: workdir: "/app"
+			},
+		]
+	}
+
+	planner: docker.#Build & {
+		steps: [
+			chef,
+			docker.#Copy & {
+				contents: projectDirectory
+				dest:     "."
+			},
+			docker.#Run & {
+				command: {
+					name: "cargo"
+					args: ["chef", "prepare", "--recipe-path", "recipe.json"]
+				}
+			},
+		]
+	}
+
+	builder: docker.#Build & {
+		steps: [
+			chef,
+			docker.#Copy & {
+				contents: planner.output.rootfs
+				source:   "/app/recipe.json"
+				dest:     "recipe.json"
+			},
+			docker.#Run & {
+				command: {
+					name: "cargo"
+					args: ["chef", "cook", "--release", "--recipe-path", "recipe.json"]
+				}
+			},
+			docker.#Copy & {
+				contents: projectDirectory
+				source:   "."
+				dest:     "."
+			},
+			docker.#Run & {
+				command: {
+					name: "cargo"
+					args: ["build", "--release", "--bin", "app"]
+				}
+			},
+		]
+	}
+
+	output: builder.output
+}
+
 dagger.#Plan & {
 
 	client: {
@@ -15,65 +84,8 @@ dagger.#Plan & {
 
 	actions: {
 
-		chef: docker.#Build & {
-			steps: [
-				docker.#Pull & {
-					source: "rust:1.62.0-slim"
-				},
-				docker.#Run & {
-					command: {
-						name: "cargo"
-						args: ["install", "cargo-chef"]
-					}
-				},
-				docker.#Set & {
-					config: workdir: "/app"
-				},
-			]
-		}
-
-		planner: docker.#Build & {
-			steps: [
-				chef,
-				docker.#Copy & {
-					contents: client.filesystem.".".read.contents
-					dest:     "."
-				},
-				docker.#Run & {
-					command: {
-						name: "cargo"
-						args: ["chef", "prepare", "--recipe-path", "recipe.json"]
-					}
-				},
-			]
-		}
-
-		builder: docker.#Build & {
-			steps: [
-				chef,
-				docker.#Copy & {
-					contents: planner.output.rootfs
-					source:   "/app/recipe.json"
-					dest:     "recipe.json"
-				},
-				docker.#Run & {
-					command: {
-						name: "cargo"
-						args: ["chef", "cook", "--release", "--recipe-path", "recipe.json"]
-					}
-				},
-				docker.#Copy & {
-					contents: client.filesystem.".".read.contents
-					source:   "."
-					dest:     "."
-				},
-				docker.#Run & {
-					command: {
-						name: "cargo"
-						args: ["build", "--release", "--bin", "app"]
-					}
-				},
-			]
+		cargochefBuild: #CargoChefBuild & {
+			projectDirectory: client.filesystem.".".read.contents
 		}
 
 		runtime: docker.#Build & {
@@ -85,7 +97,7 @@ dagger.#Plan & {
 					config: workdir: "/app"
 				},
 				docker.#Copy & {
-					contents: builder.output.rootfs
+					contents: cargochefBuild.output.rootfs
 					source:   "/app/target/release/app"
 					dest:     "/usr/local/bin"
 				},
