@@ -17,6 +17,9 @@ import (
 	// Workdir to be used in the build
 	workdir: string
 
+	// Arguments to the cargo build command
+	cargoBuildArgs: [...string]
+
 	let _workdir = workdir
 
 	chef: docker.#Build & {
@@ -74,7 +77,7 @@ import (
 			docker.#Run & {
 				command: {
 					name: "cargo"
-					args: ["build", "--release", "--bin", "app"]
+					args: ["build"] + cargoBuildArgs
 				}
 			},
 		]
@@ -96,6 +99,7 @@ dagger.#Plan & {
 			projectDirectory: client.filesystem.".".read.contents
 			rustDockerImage:  "rust:1.62.0-slim"
 			workdir:          "/app"
+			cargoBuildArgs: ["--release", "--bin", "app"]
 		}
 
 		runtime: docker.#Build & {
