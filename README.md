@@ -1,5 +1,7 @@
 # Rust cargo-chef dagger action example
 
+Example of Rust project using the [cargo-chef dagger action](https://github.com/simonecarriero/rust-cargo-chef-dagger-action)
+
 ## Build
 * [install dagger](https://docs.dagger.io/)
 * run `dagger do build`
