@@ -14,6 +14,11 @@ import (
 	// Rust Docker image to be used for building the project
 	rustDockerImage: string
 
+	// Workdir to be used in the build
+	workdir: string
+
+	let _workdir = workdir
+
 	chef: docker.#Build & {
 		steps: [
 			docker.#Pull & {
@@ -26,7 +31,7 @@ import (
 				}
 			},
 			docker.#Set & {
-				config: workdir: "/app"
+				config: workdir: _workdir
 			},
 		]
 	}
@@ -52,7 +57,7 @@ import (
 			chef,
 			docker.#Copy & {
 				contents: planner.output.rootfs
-				source:   "/app/recipe.json"
+				source:   "\(_workdir)/recipe.json"
 				dest:     "recipe.json"
 			},
 			docker.#Run & {
@@ -90,6 +95,7 @@ dagger.#Plan & {
 		cargochefBuild: #CargoChefBuild & {
 			projectDirectory: client.filesystem.".".read.contents
 			rustDockerImage:  "rust:1.62.0-slim"
+			workdir:          "/app"
 		}
 
 		runtime: docker.#Build & {
